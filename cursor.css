@@ -1,0 +1,14 @@
+/* cursor customizado usado em todas as paginas do site */
+
+html, body {
+  cursor: url('../images/cursor.png') 6 4, auto;
+}
+
+/* elementos clicaveis usam o mesmo cursor, com "pointer" como
+   fallback caso a imagem nao carregue por algum motivo */
+#maskWrap,
+.postit,
+.hitbox,
+a.voltar {
+  cursor: url('../images/cursor.png') 6 4, pointer;
+}
