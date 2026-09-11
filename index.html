@@ -240,6 +240,46 @@
     100% { opacity: 1; transform: translateY(0px) scale(1) rotate(var(--r)); }
   }
 
+
+  /* Tela inicial de disclaimer */
+  #disclaimer {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #000;
+    color: #f2f2f2;
+    cursor: pointer;
+    transition: opacity 0.8s ease;
+  }
+
+  #disclaimer.fadeOut {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #disclaimerBox {
+    width: min(680px, 90vw);
+    text-align: center;
+    line-height: 1.65;
+    font-size: clamp(13px, 1.7vw, 17px);
+    letter-spacing: 0.2px;
+  }
+
+  #disclaimerBox p {
+    margin: 0;
+  }
+
+  #disclaimerHint {
+    margin-top: 22px;
+    opacity: 0.45;
+    font-size: clamp(10px, 1.3vw, 13px);
+  }
+
 </style>
 </head>
 <body>
@@ -266,7 +306,7 @@
 
 <div id="blackout"></div>
 
-<audio id="bgMusic" src="assets/audio/background-music.mp3" loop preload="auto"></audio>
+<audio id="bgMusic" src="assets/audio/background-music.mp3" autoplay loop preload="auto"></audio>
 <audio id="letterSfx1" src="assets/audio/letter1.mp3" preload="auto"></audio>
 <audio id="letterSfx2" src="assets/audio/letter2.mp3" preload="auto"></audio>
 <audio id="letterSfx3" src="assets/audio/letter3.mp3" preload="auto"></audio>
@@ -276,8 +316,29 @@
   const inner = document.getElementById('maskInner');
   const blackout = document.getElementById('blackout');
   const captionEl = document.getElementById('caption');
+  const soundGate = document.getElementById('soundGate');
+
   const bgMusic = document.getElementById('bgMusic');
+  const disclaimer = document.getElementById('disclaimer');
+
   bgMusic.volume = 0.18; // musica de fundo baixa
+
+  // A primeira interação é usada para liberar o áudio.
+  // O clique acontece no disclaimer, antes da cena da máscara.
+  disclaimer.addEventListener('click', () => {
+    bgMusic.play().catch(() => {});
+    disclaimer.classList.add('fadeOut');
+
+    setTimeout(() => {
+      disclaimer.remove();
+    }, 850);
+  }, { once: true });
+
+  // Também tenta autoplay caso o navegador permita.
+  window.addEventListener('load', () => {
+    bgMusic.play().catch(() => {});
+  });
+
 
   const letterSfx = [
     document.getElementById('letterSfx1'),
@@ -293,6 +354,13 @@
     clone.volume = base.volume;
     clone.play().catch(() => {});
   }
+
+  // libera audio no primeiro toque (navegadores exigem interacao do usuario)
+  soundGate.addEventListener('click', () => {
+    bgMusic.play().catch(() => {});
+    soundGate.classList.add('hidden');
+    setTimeout(() => soundGate.remove(), 600);
+  }, { once: true });
 
   const phrase = "você só pode adentrar nesse mundo usando uma mascara...";
 
@@ -339,25 +407,10 @@
   }
 
   window.addEventListener('load', () => {
-    // Tenta iniciar a música assim que o site abrir.
-    // Alguns navegadores bloqueiam autoplay com som; nesse caso,
-    // o primeiro clique/toque do usuário inicia a música sem mostrar
-    // nenhum botão ou aviso na tela.
-    bgMusic.play().catch(() => {});
-
     setTimeout(() => {
       typeLetters(phrase, captionEl);
     }, 1000);
   });
-
-  // Fallback invisível para navegadores que bloqueiam autoplay.
-  // Qualquer primeira interação do usuário libera a música.
-  const startMusicOnInteraction = () => {
-    bgMusic.play().catch(() => {});
-  };
-
-  document.addEventListener('pointerdown', startMusicOnInteraction, { once: true });
-  document.addEventListener('keydown', startMusicOnInteraction, { once: true });
 
   // tremidinhas aleatorias na mascara: a maioria leve, chance bem baixa de ser forte
   let clicked = false;
