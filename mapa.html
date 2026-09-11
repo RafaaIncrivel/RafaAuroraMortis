@@ -16,23 +16,23 @@
   }
 
   #mapWrap {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    /* mantem a proporcao 16:9 da arte do mapa, sem distorcer,
-       deixando tarja preta nas laterais/topo se a tela for diferente */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
   }
 
+  /* mapInner sempre cobre a tela inteira mantendo a proporcao 16:9
+     da arte (igual "background-size: cover"), sem tarja preta */
   #mapInner {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    max-width: 177.78vh; /* 16/9 */
-    max-height: 56.25vw; /* 9/16 */
-    margin: auto;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100vw, 177.78vh);  /* 16/9 */
+    height: max(100vh, 56.25vw);  /* 9/16 */
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
+    will-change: transform;
   }
 
   #mapInner img {
@@ -56,6 +56,33 @@
   .hitbox:hover {
     outline-color: rgba(255,255,255,0.55);
     background: rgba(255,255,255,0.06);
+  }
+
+  /* cadeia de brilhinhos que roda pela borda da hitbox no hover */
+  .glint {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    margin: -4.5px 0 0 -4.5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,236,170,0.55) 45%, transparent 75%);
+    box-shadow: 0 0 7px 2px rgba(255,244,200,0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    animation: glintTravel 3.4s linear infinite;
+  }
+
+  .hitbox:hover .glint {
+    opacity: var(--glint-opacity, 1);
+  }
+
+  @keyframes glintTravel {
+    0%   { left: 0%;   top: 0%; }
+    25%  { left: 100%; top: 0%; }
+    50%  { left: 100%; top: 100%; }
+    75%  { left: 0%;   top: 100%; }
+    100% { left: 0%;   top: 0%; }
   }
 
   #blackout {
@@ -131,7 +158,38 @@
 
 <script>
   const blackout = document.getElementById('blackout');
+  const mapInner = document.getElementById('mapInner');
+  const mapWrap = document.getElementById('mapWrap');
 
+  // ---------- zoom com o scroll (100% a 200%) ----------
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 2;
+  const ZOOM_STEP = 0.1;
+  let zoom = 1;
+
+  mapWrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -1 : 1;
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + dir * ZOOM_STEP));
+    mapInner.style.transform = `translate(-50%, -50%) scale(${zoom})`;
+  }, { passive: false });
+
+  // ---------- cadeia de brilhinhos no hover das hitboxes ----------
+  const GLINT_COUNT = 6;
+  const GLINT_DURATION = 3.4; // precisa bater com o "animation" no CSS (glintTravel)
+
+  document.querySelectorAll('.hitbox').forEach(hb => {
+    for (let i = 0; i < GLINT_COUNT; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'glint';
+      const delay = -(i * (GLINT_DURATION / GLINT_COUNT));
+      dot.style.animationDelay = delay + 's';
+      dot.style.setProperty('--glint-opacity', (1 - i * 0.15).toFixed(2));
+      hb.appendChild(dot);
+    }
+  });
+
+  // ---------- clique nas hitboxes ----------
   document.querySelectorAll('.hitbox').forEach(hb => {
     hb.addEventListener('click', (e) => {
       e.preventDefault();
