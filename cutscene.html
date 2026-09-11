@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Cutscene</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Comic Sans MS', 'ComicFallback', cursive, sans-serif;
+    cursor: pointer;
+  }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #label {
+    color: #eaeaea;
+    font-size: clamp(20px, 4vw, 42px);
+    letter-spacing: 1px;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+
+  #label.show {
+    opacity: 1;
+  }
+
+  #hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #888;
+    font-size: 13px;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 1s ease;
+  }
+
+  #hint.show {
+    opacity: 1;
+  }
+
+  #blackout {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease-in;
+    z-index: 50;
+  }
+
+  #blackout.on {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <!-- PLACEHOLDER: aqui entra a cutscene de verdade (imagens, textos, animacao etc) -->
+  <div id="label">cutscene</div>
+</div>
+
+<div id="hint">(clique para avançar)</div>
+
+<div id="blackout"></div>
+
+<script>
+  const label = document.getElementById('label');
+  const hint = document.getElementById('hint');
+  const blackout = document.getElementById('blackout');
+
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      label.classList.add('show');
+      hint.classList.add('show');
+    }, 400);
+  });
+
+  let advancing = false;
+  document.body.addEventListener('click', () => {
+    if (advancing) return;
+    advancing = true;
+
+    hint.classList.remove('show');
+    blackout.classList.add('on');
+
+    setTimeout(() => {
+      window.location.href = 'mapa.html';
+    }, 950);
+  });
+</script>
+
+</body>
+</html>
