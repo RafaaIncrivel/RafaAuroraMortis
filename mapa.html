@@ -161,18 +161,88 @@
   const mapInner = document.getElementById('mapInner');
   const mapWrap = document.getElementById('mapWrap');
 
-  // ---------- zoom com o scroll (100% a 200%) ----------
+  // ---------- zoom com o scroll (100% a 250%) ----------
   const MIN_ZOOM = 1;
-  const MAX_ZOOM = 2;
+  const MAX_ZOOM = 2.5;
   const ZOOM_STEP = 0.1;
   let zoom = 1;
+
+  // ---------- pan da camera (estilo League of Legends) ----------
+  const EDGE_ZONE = 90;        // px da borda da tela que ativa o pan
+  const MAX_PAN_SPEED = 700;   // px por segundo, no maximo (cursor colado na borda)
+
+  let panX = 0;
+  let panY = 0;
+  let mouseX = window.innerWidth / 2;
+  let mouseY = window.innerHeight / 2;
+
+  document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  function clampPan() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const baseW = mapInner.offsetWidth;
+    const baseH = mapInner.offsetHeight;
+
+    const overflowX = Math.max(0, (baseW * zoom - vw) / 2);
+    const overflowY = Math.max(0, (baseH * zoom - vh) / 2);
+
+    panX = Math.min(overflowX, Math.max(-overflowX, panX));
+    panY = Math.min(overflowY, Math.max(-overflowY, panY));
+  }
+
+  function applyTransform() {
+    mapInner.style.transform =
+      `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${zoom})`;
+  }
 
   mapWrap.addEventListener('wheel', (e) => {
     e.preventDefault();
     const dir = e.deltaY > 0 ? -1 : 1;
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + dir * ZOOM_STEP));
-    mapInner.style.transform = `translate(-50%, -50%) scale(${zoom})`;
+    clampPan();
+    applyTransform();
   }, { passive: false });
+
+  let lastFrameTime = performance.now();
+
+  function panLoop(now) {
+    const dt = Math.min(0.05, (now - lastFrameTime) / 1000); // trava dt pra evitar saltos
+    lastFrameTime = now;
+
+    if (zoom > 1.001) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      let vx = 0;
+      let vy = 0;
+
+      if (mouseX < EDGE_ZONE) {
+        vx = MAX_PAN_SPEED * (1 - mouseX / EDGE_ZONE);
+      } else if (mouseX > vw - EDGE_ZONE) {
+        vx = -MAX_PAN_SPEED * (1 - (vw - mouseX) / EDGE_ZONE);
+      }
+
+      if (mouseY < EDGE_ZONE) {
+        vy = MAX_PAN_SPEED * (1 - mouseY / EDGE_ZONE);
+      } else if (mouseY > vh - EDGE_ZONE) {
+        vy = -MAX_PAN_SPEED * (1 - (vh - mouseY) / EDGE_ZONE);
+      }
+
+      if (vx !== 0 || vy !== 0) {
+        panX += vx * dt;
+        panY += vy * dt;
+        clampPan();
+        applyTransform();
+      }
+    }
+
+    requestAnimationFrame(panLoop);
+  }
+  requestAnimationFrame(panLoop);
 
   // ---------- cadeia de brilhinhos no hover das hitboxes ----------
   const GLINT_COUNT = 6;
