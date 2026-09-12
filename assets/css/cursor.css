@@ -10,5 +10,5 @@ html, body {
 .postit,
 .hitbox,
 a.voltar {
-  cursor: url('../images/cursortrue.png') 3 2, pointer;
+  cursor: url('../images/cursortrueclicando.png') 3 2, pointer;
 }
