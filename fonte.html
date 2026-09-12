@@ -95,17 +95,17 @@
   /* tremida de "boneco falando": movimento brusco mas sem sair do lugar */
   @keyframes puppetTalk {
     0%   { transform: translate(0,0) rotate(0deg); }
-    15%  { transform: translate(-2px, 1.5px) rotate(-1.4deg); }
-    30%  { transform: translate(2px, -1px) rotate(1.2deg); }
-    45%  { transform: translate(-1.5px, 2px) rotate(-1deg); }
-    60%  { transform: translate(1.5px, -1.5px) rotate(1.5deg); }
-    75%  { transform: translate(-1.5px, 1px) rotate(-1.1deg); }
-    90%  { transform: translate(1px, -0.5px) rotate(0.7deg); }
+    15%  { transform: translate(-1px, 0.8px) rotate(-0.7deg); }
+    30%  { transform: translate(1px, -0.6px) rotate(0.6deg); }
+    45%  { transform: translate(-0.8px, 1px) rotate(-0.5deg); }
+    60%  { transform: translate(0.8px, -0.8px) rotate(0.7deg); }
+    75%  { transform: translate(-0.8px, 0.6px) rotate(-0.5deg); }
+    90%  { transform: translate(0.6px, -0.3px) rotate(0.3deg); }
     100% { transform: translate(0,0) rotate(0deg); }
   }
 
   .talking {
-    animation: puppetTalk 0.32s ease-in-out infinite !important;
+    animation: puppetTalk 0.65s ease-in-out infinite !important;
   }
 
   /* chacoalhada curta quando o usuario "chega" na posicao */
@@ -183,6 +183,73 @@
     opacity: 0.55;
   }
 
+  /* ---------- menu de escolhas (perguntas do jogador) ---------- */
+  #choiceMenu {
+    position: fixed;
+    left: 50%;
+    bottom: 4%;
+    width: min(86vw, 900px);
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    z-index: 20;
+  }
+
+  #choiceMenu.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  #choicePrompt {
+    color: #ccc;
+    font-size: 13px;
+    font-style: italic;
+    margin-bottom: 8px;
+    padding-left: 6px;
+  }
+
+  #choiceList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(15, 14, 12, 0.86);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+  }
+
+  .choice-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #f0ede4;
+    font-family: inherit;
+    font-size: clamp(13px, 1.8vw, 16px);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+
+  .choice-btn:hover {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.35);
+    transform: translateX(3px);
+  }
+
+  .choice-btn.sair {
+    color: #e8a06a;
+    border-color: rgba(232,119,46,0.4);
+  }
+
+  .choice-btn.sair:hover {
+    background: rgba(232,119,46,0.15);
+    border-color: rgba(232,119,46,0.6);
+  }
+
   #blackout {
     position: fixed;
     inset: 0;
@@ -221,7 +288,16 @@
   <div id="advanceHint">(clique para continuar)</div>
 </div>
 
+<div id="choiceMenu">
+  <div id="choicePrompt">O que você quer perguntar?</div>
+  <div id="choiceList"></div>
+</div>
+
 <div id="blackout"></div>
+
+<!-- troque pelos caminhos reais quando subir pro GitHub -->
+<audio id="bgMusic" src="assets/audio/fonte-music.mp3" loop preload="auto"></audio>
+<audio id="violinBlip" src="assets/audio/violino-blip.mp3" preload="auto"></audio>
 
 <script>
   const fantasma = document.getElementById('fantasma');
@@ -229,68 +305,186 @@
   const dialogueBox = document.getElementById('dialogueBox');
   const speakerName = document.getElementById('speakerName');
   const dialogueText = document.getElementById('dialogueText');
+  const advanceHint = document.getElementById('advanceHint');
+  const choiceMenu = document.getElementById('choiceMenu');
+  const choiceList = document.getElementById('choiceList');
   const blackout = document.getElementById('blackout');
+  const bgMusic = document.getElementById('bgMusic');
+  const violinBlip = document.getElementById('violinBlip');
 
-  // ---------- PLACEHOLDER: roteiro de exemplo, troque pelas falas reais ----------
-  const script = [
-    { speaker: 'fantasma', name: 'Fantasma da Fonte',
-      text: '(texto de exemplo) Ah... você chegou. Eu sabia que apareceria por aqui algum dia.' },
-    { speaker: 'usuario', name: '???',
-      text: '(texto de exemplo) Onde eu estou? Esse lugar... parece familiar de um jeito estranho.' },
-    { speaker: 'fantasma', name: 'Fantasma da Fonte',
-      text: '(texto de exemplo) Essa é uma história longa. Melhor começarmos do início...' },
-    { speaker: 'usuario', name: '???',
-      text: '(texto de exemplo) Tudo bem. Eu tenho tempo. Acho que não tenho muito mais o que fazer aqui.' },
+  bgMusic.volume = 0.25;
+  violinBlip.volume = 0.5;
+
+  // ---------- musica de fundo (com fallback pra politica de autoplay) ----------
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    bgMusic.play().catch(() => {});
+  }
+  bgMusic.play().catch(() => {}); // tenta direto; se o navegador bloquear, o proximo clique libera
+  document.addEventListener('click', unlockAudio, { once: true });
+
+  function playBlip() {
+    const clone = violinBlip.cloneNode(true);
+    clone.volume = violinBlip.volume;
+    clone.play().catch(() => {});
+  }
+
+  // ---------- PLACEHOLDER: falas e perguntas de exemplo, troque pelo roteiro real ----------
+  const introLines = [
+    '(texto de exemplo) Ah... você chegou. Eu sabia que apareceria por aqui algum dia.',
+    '(texto de exemplo) Sinta-se livre pra perguntar o que quiser. Eu tenho bastante tempo livre... o tempo todo, na verdade.',
   ];
 
-  let currentLine = 0;
+  const questions = [
+    { q: 'Quem é você?',
+      a: '(texto de exemplo) Eu já fui alguém com um nome. Hoje sou só o que restou perto dessa fonte.' },
+    { q: 'Onde eu estou?',
+      a: '(texto de exemplo) Essa vila existe entre o que foi esquecido e o que ainda se recusa a desaparecer.' },
+    { q: 'O que aconteceu aqui?',
+      a: '(texto de exemplo) Isso é uma história longa. Talvez, com o tempo, eu conte um pedaço dela.' },
+    { q: 'Você pode me ajudar?',
+      a: '(texto de exemplo) Talvez. Mas ajuda, por aqui, sempre tem um preço.' },
+  ];
 
-  function setTalking(speaker) {
-    fantasma.classList.toggle('talking', speaker === 'fantasma');
-    usuario.classList.toggle('talking', speaker === 'usuario');
+  // ---------- motor de typewriter (estilo Undertale) ----------
+  const TYPE_SPEED_MS = 42; // tempo entre cada letra
+  let typeInterval = null;
+  let typing = false;
+  let onTypingDone = null;
+
+  function typeText(text, onDone) {
+    clearInterval(typeInterval);
+    dialogueText.textContent = '';
+    advanceHint.style.opacity = '0';
+    fantasma.classList.add('talking');
+    typing = true;
+    onTypingDone = onDone;
+
+    let i = 0;
+    typeInterval = setInterval(() => {
+      const ch = text[i];
+      dialogueText.textContent += ch;
+      if (ch !== ' ') playBlip();
+      i++;
+      if (i >= text.length) {
+        finishTyping();
+      }
+    }, TYPE_SPEED_MS);
   }
 
-  function showLine(index) {
-    const line = script[index];
-    speakerName.textContent = line.name;
-    speakerName.className = line.speaker; // reseta e aplica a cor certa
-    dialogueText.textContent = line.text;
-    setTalking(line.speaker);
+  function finishTyping(skippedText) {
+    clearInterval(typeInterval);
+    if (skippedText !== undefined) dialogueText.textContent = skippedText;
+    typing = false;
+    fantasma.classList.remove('talking');
+    advanceHint.style.opacity = '0.55';
+    if (onTypingDone) onTypingDone();
   }
 
-  function advanceDialogue() {
-    if (currentLine < script.length - 1) {
-      currentLine++;
-      showLine(currentLine);
+  // ---------- fluxo de dialogo ----------
+  let introIndex = 0;
+
+  function showIntroLine(i) {
+    speakerName.textContent = 'Fantasma da Fonte';
+    speakerName.className = 'fantasma';
+    typeText(introLines[i], () => {});
+  }
+
+  function advanceIntro() {
+    if (typing) {
+      finishTyping(introLines[introIndex]);
+      return;
+    }
+    introIndex++;
+    if (introIndex < introLines.length) {
+      showIntroLine(introIndex);
     } else {
-      // fim do roteiro de exemplo: para de tremer e fecha a caixa
-      setTalking(null);
       dialogueBox.classList.remove('show');
-      // Espaco para: proxima cena / navegacao futura / fade e volta ao mapa
+      dialogueBox.removeEventListener('click', advanceIntro);
+      openChoiceMenu();
     }
   }
 
-  dialogueBox.addEventListener('click', advanceDialogue);
-
   function startDialogue() {
     dialogueBox.classList.add('show');
-    showLine(0);
+    dialogueBox.addEventListener('click', advanceIntro);
+    introIndex = 0;
+    showIntroLine(0);
   }
 
+  // ---------- menu de perguntas ----------
+  function buildChoiceMenu() {
+    choiceList.innerHTML = '';
+    questions.forEach((item, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = item.q;
+      btn.addEventListener('click', () => askQuestion(idx));
+      choiceList.appendChild(btn);
+    });
+
+    const sairBtn = document.createElement('button');
+    sairBtn.className = 'choice-btn sair';
+    sairBtn.textContent = 'Sair';
+    sairBtn.addEventListener('click', leaveScene);
+    choiceList.appendChild(sairBtn);
+  }
+
+  function openChoiceMenu() {
+    choiceMenu.classList.add('show');
+  }
+
+  function closeChoiceMenu() {
+    choiceMenu.classList.remove('show');
+  }
+
+  function askQuestion(idx) {
+    closeChoiceMenu();
+    dialogueBox.classList.add('show');
+
+    const respond = () => {
+      speakerName.textContent = 'Fantasma da Fonte';
+      speakerName.className = 'fantasma';
+      typeText(questions[idx].a, () => {});
+    };
+    respond();
+
+    function onAnswerClick() {
+      if (typing) {
+        finishTyping(questions[idx].a);
+        return;
+      }
+      dialogueBox.removeEventListener('click', onAnswerClick);
+      dialogueBox.classList.remove('show');
+      openChoiceMenu();
+    }
+    dialogueBox.addEventListener('click', onAnswerClick);
+  }
+
+  function leaveScene() {
+    closeChoiceMenu();
+    blackout.classList.add('on');
+    setTimeout(() => {
+      window.location.href = 'mapa.html';
+    }, 700);
+  }
+
+  buildChoiceMenu();
+
+  // ---------- entrada do usuario ----------
   window.addEventListener('load', () => {
-    // usuario entra deslizando da direita
     setTimeout(() => {
       usuario.classList.add('arrived');
     }, 500);
 
-    // ao terminar de deslizar, da uma chacoalhada de "chegada"
     usuario.addEventListener('transitionend', function onArrive(e) {
       if (e.propertyName !== 'transform') return;
       usuario.removeEventListener('transitionend', onArrive);
       usuario.classList.add('wobble');
       setTimeout(() => usuario.classList.remove('wobble'), 650);
 
-      // comeca o dialogo um instante depois da chegada
       setTimeout(startDialogue, 400);
     });
   });
