@@ -13,49 +13,288 @@
     background: #000;
     overflow: hidden;
     font-family: 'Comic Sans MS', 'ComicFallback', cursive, sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    color: #eaeaea;
   }
 
-  h1 {
-    font-size: clamp(22px, 4vw, 40px);
-    letter-spacing: 1px;
-    margin-bottom: 8px;
+  /* ---------- cenario em tela cheia, sem tarja preta ---------- */
+  #sceneWrap {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
   }
 
-  p {
-    color: #888;
+  /* mantem a proporcao 16:9 da arte de fundo (Fonteparauso.jpg e
+     2560x1440 = 16:9), sempre cobrindo a tela inteira, igual no mapa.
+     Todas as posicoes dos personagens sao % relativas a este mesmo box,
+     entao ficam alinhadas com a arte independente do tamanho da tela. */
+  #sceneInner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100vw, 177.78vh);  /* 16/9 */
+    height: max(100vh, 56.25vw);  /* 9/16 */
+    transform: translate(-50%, -50%);
+  }
+
+  #sceneInner > img.bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  /* ---------- personagens (bonecos de vareta) ---------- */
+  .puppet {
+    position: absolute;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .puppet img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  /* fantasma: sempre presente, sentado na abobora, com uma leve
+     flutuacao continua pra nao parecer estatico */
+  #fantasma {
+    left: 10.27%;
+    top: 0%;
+    width: 21.80%;
+    height: 100%;
+    transform-origin: 50% 92%; /* pivot perto da base do pauzinho */
+    animation: idleFloatFantasma 4.5s ease-in-out infinite;
+  }
+
+  @keyframes idleFloatFantasma {
+    0%, 100% { transform: rotate(0deg) translateY(0px); }
+    50%      { transform: rotate(0.6deg) translateY(-4px); }
+  }
+
+  /* usuario: comeca fora da tela (direita) e deslisa pra posicao final */
+  #usuario {
+    left: 72.73%;
+    top: 27.85%;
+    width: 14.84%;
+    height: 72.78%;
+    transform-origin: 50% 92%;
+    transform: translateX(55vw);
+    transition: transform 1.3s cubic-bezier(.22, .8, .2, 1);
+  }
+
+  #usuario.arrived {
+    transform: translateX(0);
+  }
+
+  /* tremida de "boneco falando": movimento brusco mas sem sair do lugar */
+  @keyframes puppetTalk {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    15%  { transform: translate(-2px, 1.5px) rotate(-1.4deg); }
+    30%  { transform: translate(2px, -1px) rotate(1.2deg); }
+    45%  { transform: translate(-1.5px, 2px) rotate(-1deg); }
+    60%  { transform: translate(1.5px, -1.5px) rotate(1.5deg); }
+    75%  { transform: translate(-1.5px, 1px) rotate(-1.1deg); }
+    90%  { transform: translate(1px, -0.5px) rotate(0.7deg); }
+    100% { transform: translate(0,0) rotate(0deg); }
+  }
+
+  .talking {
+    animation: puppetTalk 0.32s ease-in-out infinite !important;
+  }
+
+  /* chacoalhada curta quando o usuario "chega" na posicao */
+  @keyframes arriveWobble {
+    0%   { transform: translateX(0) rotate(0deg); }
+    20%  { transform: translateX(0) rotate(-3deg); }
+    40%  { transform: translateX(0) rotate(2.5deg); }
+    60%  { transform: translateX(0) rotate(-1.6deg); }
+    80%  { transform: translateX(0) rotate(0.8deg); }
+    100% { transform: translateX(0) rotate(0deg); }
+  }
+
+  #usuario.wobble {
+    animation: arriveWobble 0.6s ease-out;
+  }
+
+  /* ---------- caixa de dialogo (estilo visual novel) ---------- */
+  #dialogueBox {
+    position: fixed;
+    left: 50%;
+    bottom: 4%;
+    width: min(86vw, 900px);
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(15, 14, 12, 0.86);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 26px 30px 22px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+    color: #f0ede4;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    cursor: pointer;
+    z-index: 20;
+  }
+
+  #dialogueBox.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  #speakerName {
+    position: absolute;
+    top: -18px;
+    left: 24px;
+    padding: 5px 16px;
+    border-radius: 8px;
+    font-weight: bold;
     font-size: 14px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+
+  #speakerName.fantasma {
+    background: #5a8f3c;
+    color: #f4fff0;
+  }
+
+  #speakerName.usuario {
+    background: #e8772e;
+    color: #2b2b2b;
+  }
+
+  #dialogueText {
+    font-size: clamp(14px, 2vw, 18px);
+    line-height: 1.55;
+    min-height: 3.2em;
+  }
+
+  #advanceHint {
+    position: absolute;
+    right: 18px;
+    bottom: 10px;
+    font-size: 11px;
     font-style: italic;
-    margin-top: 0;
+    opacity: 0.55;
   }
 
-  a.voltar {
-    margin-top: 34px;
-    color: #ccc;
-    font-size: 14px;
-    text-decoration: none;
-    border: 1px solid rgba(255,255,255,0.35);
-    padding: 10px 22px;
-    border-radius: 6px;
-    transition: background 0.2s ease;
+  #blackout {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease-in;
+    z-index: 50;
   }
 
-  a.voltar:hover {
-    background: rgba(255,255,255,0.08);
+  #blackout.on {
+    opacity: 1;
   }
 </style>
 </head>
 <body>
 
-  <!-- PLACEHOLDER: conteudo real de "Fonte" entra aqui -->
-  <h1>Fonte</h1>
-  <p>(conteúdo em construção)</p>
+<div id="sceneWrap">
+  <div id="sceneInner">
+    <!-- troque pelo caminho real quando subir pro GitHub -->
+    <img class="bg" src="assets/images/fonte-cenario.jpg" alt="cenario da fonte" draggable="false">
 
-  <a class="voltar" href="mapa.html">&larr; voltar ao mapa</a>
+    <div class="puppet" id="fantasma">
+      <img src="assets/images/fantasmafonte.png" alt="fantasma da fonte" draggable="false">
+    </div>
+
+    <div class="puppet" id="usuario">
+      <img src="assets/images/usuariofonte.png" alt="usuario" draggable="false">
+    </div>
+  </div>
+</div>
+
+<div id="dialogueBox">
+  <div id="speakerName"></div>
+  <div id="dialogueText"></div>
+  <div id="advanceHint">(clique para continuar)</div>
+</div>
+
+<div id="blackout"></div>
+
+<script>
+  const fantasma = document.getElementById('fantasma');
+  const usuario = document.getElementById('usuario');
+  const dialogueBox = document.getElementById('dialogueBox');
+  const speakerName = document.getElementById('speakerName');
+  const dialogueText = document.getElementById('dialogueText');
+  const blackout = document.getElementById('blackout');
+
+  // ---------- PLACEHOLDER: roteiro de exemplo, troque pelas falas reais ----------
+  const script = [
+    { speaker: 'fantasma', name: 'Fantasma da Fonte',
+      text: '(texto de exemplo) Ah... você chegou. Eu sabia que apareceria por aqui algum dia.' },
+    { speaker: 'usuario', name: '???',
+      text: '(texto de exemplo) Onde eu estou? Esse lugar... parece familiar de um jeito estranho.' },
+    { speaker: 'fantasma', name: 'Fantasma da Fonte',
+      text: '(texto de exemplo) Essa é uma história longa. Melhor começarmos do início...' },
+    { speaker: 'usuario', name: '???',
+      text: '(texto de exemplo) Tudo bem. Eu tenho tempo. Acho que não tenho muito mais o que fazer aqui.' },
+  ];
+
+  let currentLine = 0;
+
+  function setTalking(speaker) {
+    fantasma.classList.toggle('talking', speaker === 'fantasma');
+    usuario.classList.toggle('talking', speaker === 'usuario');
+  }
+
+  function showLine(index) {
+    const line = script[index];
+    speakerName.textContent = line.name;
+    speakerName.className = line.speaker; // reseta e aplica a cor certa
+    dialogueText.textContent = line.text;
+    setTalking(line.speaker);
+  }
+
+  function advanceDialogue() {
+    if (currentLine < script.length - 1) {
+      currentLine++;
+      showLine(currentLine);
+    } else {
+      // fim do roteiro de exemplo: para de tremer e fecha a caixa
+      setTalking(null);
+      dialogueBox.classList.remove('show');
+      // Espaco para: proxima cena / navegacao futura / fade e volta ao mapa
+    }
+  }
+
+  dialogueBox.addEventListener('click', advanceDialogue);
+
+  function startDialogue() {
+    dialogueBox.classList.add('show');
+    showLine(0);
+  }
+
+  window.addEventListener('load', () => {
+    // usuario entra deslizando da direita
+    setTimeout(() => {
+      usuario.classList.add('arrived');
+    }, 500);
+
+    // ao terminar de deslizar, da uma chacoalhada de "chegada"
+    usuario.addEventListener('transitionend', function onArrive(e) {
+      if (e.propertyName !== 'transform') return;
+      usuario.removeEventListener('transitionend', onArrive);
+      usuario.classList.add('wobble');
+      setTimeout(() => usuario.classList.remove('wobble'), 650);
+
+      // comeca o dialogo um instante depois da chegada
+      setTimeout(startDialogue, 400);
+    });
+  });
+</script>
 
 </body>
 </html>
