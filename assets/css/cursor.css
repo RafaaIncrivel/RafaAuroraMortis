@@ -1,7 +1,7 @@
 /* cursor customizado usado em todas as paginas do site */
 
 html, body {
-  cursor: url('../images/cursor.png') 3 2, auto;
+  cursor: url('../images/cursortrue.png') 3 2, auto;
 }
 
 /* elementos clicaveis usam o mesmo cursor, com "pointer" como
@@ -10,5 +10,5 @@ html, body {
 .postit,
 .hitbox,
 a.voltar {
-  cursor: url('../images/cursor.png') 3 2, pointer;
+  cursor: url('../images/cursortrue.png') 3 2, pointer;
 }
