@@ -295,9 +295,8 @@
 
 <div id="blackout"></div>
 
-<!-- troque pelos caminhos reais quando subir pro GitHub -->
+<!-- troque pelo caminho real quando subir pro GitHub -->
 <audio id="bgMusic" src="assets/audio/fonte-music.mp3" loop preload="auto"></audio>
-<audio id="violinBlip" src="assets/audio/violino-blip.mp3" preload="auto"></audio>
 
 <script>
   const fantasma = document.getElementById('fantasma');
@@ -310,10 +309,8 @@
   const choiceList = document.getElementById('choiceList');
   const blackout = document.getElementById('blackout');
   const bgMusic = document.getElementById('bgMusic');
-  const violinBlip = document.getElementById('violinBlip');
 
   bgMusic.volume = 0.25;
-  violinBlip.volume = 0.5;
 
   // ---------- musica de fundo (com fallback pra politica de autoplay) ----------
   let audioUnlocked = false;
@@ -321,14 +318,61 @@
     if (audioUnlocked) return;
     audioUnlocked = true;
     bgMusic.play().catch(() => {});
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   }
   bgMusic.play().catch(() => {}); // tenta direto; se o navegador bloquear, o proximo clique libera
   document.addEventListener('click', unlockAudio, { once: true });
 
+  // ---------- "voz" do fantasma sintetizada na hora (sem arquivo de audio),
+  // um pizzicato curto de violino toda vez que uma letra aparece ----------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+
   function playBlip() {
-    const clone = violinBlip.cloneNode(true);
-    clone.volume = violinBlip.volume;
-    clone.play().catch(() => {});
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+
+    // pequena variacao de altura, tipo o "blip" do Undertale
+    const baseFreq = 392 + (Math.random() * 50 - 25); // em torno de um Sol4
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth'; // rico em harmonicos, mais parecido com corda do que uma onda senoidal
+    osc.frequency.setValueAtTime(baseFreq, now);
+
+    // um leve vibrato rapido pra dar caracter de corda friccionada
+    const vibrato = ctx.createOscillator();
+    vibrato.frequency.value = 26;
+    const vibratoGain = ctx.createGain();
+    vibratoGain.gain.value = 6;
+    vibrato.connect(vibratoGain);
+    vibratoGain.connect(osc.frequency);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2200;
+    filter.Q.value = 0.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.32, now + 0.012);  // ataque rapido (pizzicato)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11); // decaimento curto
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    vibrato.start(now);
+    osc.stop(now + 0.12);
+    vibrato.stop(now + 0.12);
   }
 
   // ---------- PLACEHOLDER: falas e perguntas de exemplo, troque pelo roteiro real ----------
