@@ -156,10 +156,26 @@
 
 <div id="blackout"></div>
 
+<!-- troque pelo caminho real quando subir pro GitHub -->
+<audio id="bgMusic" src="assets/audio/mapa-music.mp3" loop preload="auto"></audio>
+
 <script>
   const blackout = document.getElementById('blackout');
   const mapInner = document.getElementById('mapInner');
   const mapWrap = document.getElementById('mapWrap');
+  const bgMusic = document.getElementById('bgMusic');
+
+  bgMusic.volume = 0.25;
+
+  // ---------- musica de fundo (com fallback pra politica de autoplay) ----------
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    bgMusic.play().catch(() => {});
+  }
+  bgMusic.play().catch(() => {}); // tenta direto; se o navegador bloquear, o proximo clique libera
+  document.addEventListener('click', unlockAudio, { once: true });
 
   // ---------- zoom com o scroll (100% a 250%) ----------
   const MIN_ZOOM = 1;
@@ -265,6 +281,16 @@
       e.preventDefault();
       const dest = hb.dataset.dest;
       blackout.classList.add('on');
+
+      const fadeMusic = setInterval(() => {
+        if (bgMusic.volume > 0.01) {
+          bgMusic.volume = Math.max(0, bgMusic.volume - 0.02);
+        } else {
+          bgMusic.pause();
+          clearInterval(fadeMusic);
+        }
+      }, 30);
+
       setTimeout(() => {
         window.location.href = dest;
       }, 550);
