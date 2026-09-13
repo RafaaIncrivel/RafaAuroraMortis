@@ -188,6 +188,9 @@
 
 <div id="blackout"></div>
 
+<!-- DEBUG TEMPORARIO: remover essa div quando terminar de calibrar a altura -->
+<div id="debugReadout" style="position:fixed; top:10px; left:10px; z-index:100; color:#0f0; background:rgba(0,0,0,0.6); font-family:monospace; font-size:13px; padding:6px 10px; border-radius:6px; pointer-events:none;"></div>
+
 <script>
   const dialogueBox = document.getElementById('dialogueBox');
   const dialogueText = document.getElementById('dialogueText');
@@ -198,6 +201,7 @@
   const handCursor = document.getElementById('handCursor');
   const sceneWrap = document.getElementById('sceneWrap');
   const blackout = document.getElementById('blackout');
+  const debugReadout = document.getElementById('debugReadout');
 
   // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
   let audioCtx = null;
@@ -376,6 +380,15 @@
 
     handOffset.x = clamp(handOffset.x + e.movementX, -HAND_SIDE_LIMIT, HAND_SIDE_LIMIT);
     handOffset.y = clamp(handOffset.y + e.movementY, -HAND_UP_LIMIT, HAND_DOWN_LIMIT);
+
+    // ---- DEBUG TEMPORARIO: mostra o valor exato de handOffset.y na tela ----
+    // (remover essa linha e o #debugReadout do HTML quando terminar de calibrar)
+    if (debugReadout) {
+      debugReadout.textContent =
+        'handOffset.y = ' + Math.round(handOffset.y) +
+        ' | zona atual: ' + GRAB_ZONE_MIN_UP + ' a ' + GRAB_ZONE_MAX_UP +
+        ' | pode clicar: ' + canGrabNow();
+    }
 
     if (!dragging) {
       handCursor.style.transform = `translate(${handOffset.x}px, ${handOffset.y}px)`;
