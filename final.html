@@ -60,6 +60,15 @@
     display: block;
   }
 
+  /* wrapper interno so pra tremidinha, separado do #sceneInner que centraliza
+     a cena -- assim a animacao nunca sobrescreve o translate(-50%,-50%) */
+  #shakeWrapper {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   /* tremidinha leve enquanto o jogador esta ativamente puxando a mascara */
   @keyframes ghostTremble {
     0%   { transform: translate(0, 0) rotate(0deg); }
@@ -70,7 +79,7 @@
     100% { transform: translate(0, 0) rotate(0deg); }
   }
 
-  #sceneInner.trembling {
+  #shakeWrapper.trembling {
     animation: ghostTremble 0.22s ease-in-out infinite;
   }
 
@@ -131,23 +140,6 @@
     cursor: none;
   }
 
-  #relockPrompt {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.6);
-    color: #eee;
-    font-size: 15px;
-    z-index: 40;
-    cursor: pointer;
-  }
-
-  #relockPrompt.show {
-    display: flex;
-  }
-
   #blackout {
     position: fixed;
     inset: 0;
@@ -170,11 +162,13 @@
 
 <div id="sceneWrap">
   <div id="sceneInner">
-    <!-- troque pelos caminhos reais (.png com transparencia) quando subir pro GitHub -->
-    <img class="ghost-layer" id="ghostBody"   src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
-    <img class="ghost-layer" id="ghostMask"   src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
-    <img class="ghost-layer" id="ghostFringe" src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
-    <img class="ghost-layer" id="handCursor"  src="assets/images/maoquemata.png" alt="" draggable="false">
+    <div id="shakeWrapper">
+      <!-- troque pelos caminhos reais (.png com transparencia) quando subir pro GitHub -->
+      <img class="ghost-layer" id="ghostBody"   src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
+      <img class="ghost-layer" id="ghostMask"   src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
+      <img class="ghost-layer" id="ghostFringe" src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
+      <img class="ghost-layer" id="handCursor"  src="assets/images/maoquemata.png" alt="" draggable="false">
+    </div>
   </div>
 </div>
 
@@ -184,8 +178,6 @@
   <div id="advanceHint">(clique para continuar)</div>
 </div>
 
-<div id="relockPrompt">(clique para continuar)</div>
-
 <div id="blackout"></div>
 
 <script>
@@ -193,10 +185,8 @@
   const dialogueText = document.getElementById('dialogueText');
   const advanceHint = document.getElementById('advanceHint');
   const ghostMask = document.getElementById('ghostMask');
-  const sceneInner = document.getElementById('sceneInner');
-  const sceneWrap = document.getElementById('sceneWrap');
+  const shakeWrapper = document.getElementById('shakeWrapper');
   const handCursor = document.getElementById('handCursor');
-  const relockPrompt = document.getElementById('relockPrompt');
   const blackout = document.getElementById('blackout');
 
   // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
@@ -331,7 +321,6 @@
   const HAND_DOWN_LIMIT = 420;   // px, livre pra baixar
 
   let interactionActive = false;
-  let locked = false;
   let dragging = false;
   let removed = false;
 
@@ -349,23 +338,13 @@
   function beginMaskPull() {
     interactionActive = true;
     handCursor.classList.add('show');
-    document.body.classList.add('locked-cursor');
-    sceneWrap.requestPointerLock();
+    document.body.classList.add('locked-cursor'); // esconde o cursor normal via CSS
   }
 
-  document.addEventListener('pointerlockchange', () => {
-    locked = document.pointerLockElement === sceneWrap;
-    if (interactionActive && !removed) {
-      relockPrompt.classList.toggle('show', !locked);
-    }
-  });
-
-  relockPrompt.addEventListener('click', () => {
-    sceneWrap.requestPointerLock();
-  });
-
+  // usamos e.movementX/e.movementY do mousemove comum -- funciona sem precisar
+  // de Pointer Lock nem de nenhuma permissao especial do navegador
   document.addEventListener('mousemove', (e) => {
-    if (!interactionActive || !locked || removed) return;
+    if (!interactionActive || removed) return;
 
     handOffset.x = clamp(handOffset.x + e.movementX, -HAND_SIDE_LIMIT, HAND_SIDE_LIMIT);
     handOffset.y = clamp(handOffset.y + e.movementY, -HAND_UP_LIMIT, HAND_DOWN_LIMIT);
@@ -385,11 +364,11 @@
   });
 
   document.addEventListener('mousedown', () => {
-    if (!interactionActive || !locked || removed) return;
+    if (!interactionActive || removed) return;
     dragging = true;
     gripStartHand = { x: handOffset.x, y: handOffset.y };
     handCursor.src = 'assets/images/maoquematana_mascara.png';
-    sceneInner.classList.add('trembling');
+    shakeWrapper.classList.add('trembling');
   });
 
   document.addEventListener('mouseup', () => {
@@ -397,7 +376,7 @@
     dragging = false;
     if (!removed) {
       handCursor.src = 'assets/images/maoquemata.png';
-      sceneInner.classList.remove('trembling');
+      shakeWrapper.classList.remove('trembling');
     }
   });
 
@@ -433,10 +412,7 @@
   function detachMask() {
     removed = true;
     dragging = false;
-    sceneInner.classList.remove('trembling');
-    relockPrompt.classList.remove('show');
-
-    if (document.exitPointerLock) document.exitPointerLock();
+    shakeWrapper.classList.remove('trembling');
     document.body.classList.remove('locked-cursor');
     handCursor.classList.remove('show');
 
