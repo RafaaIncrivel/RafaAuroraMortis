@@ -188,6 +188,11 @@
 
 <div id="blackout"></div>
 
+<!-- troque pelos caminhos reais quando subir pro GitHub -->
+<audio id="bgMusic" src="assets/audio/final-music.mp3" loop preload="auto"></audio>
+<audio id="fleshSfx" src="assets/audio/carne.mp3" loop preload="auto"></audio>
+<audio id="boneSfx" src="assets/audio/osso.mp3" loop preload="auto"></audio>
+
 <script>
   const dialogueBox = document.getElementById('dialogueBox');
   const dialogueText = document.getElementById('dialogueText');
@@ -198,6 +203,35 @@
   const handCursor = document.getElementById('handCursor');
   const sceneWrap = document.getElementById('sceneWrap');
   const blackout = document.getElementById('blackout');
+  const bgMusic = document.getElementById('bgMusic');
+  const fleshSfx = document.getElementById('fleshSfx');
+  const boneSfx = document.getElementById('boneSfx');
+
+  bgMusic.volume = 0.25;
+  fleshSfx.volume = 0.55;
+  boneSfx.volume = 0.5;
+
+  // ---------- musica de fundo (com fallback pra politica de autoplay) ----------
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    bgMusic.play().catch(() => {});
+  }
+  bgMusic.play().catch(() => {}); // tenta direto; se o navegador bloquear, o proximo clique libera
+  document.addEventListener('click', unlockAudio, { once: true });
+
+  function startTearingSfx() {
+    fleshSfx.currentTime = 0;
+    boneSfx.currentTime = 0;
+    fleshSfx.play().catch(() => {});
+    boneSfx.play().catch(() => {});
+  }
+
+  function stopTearingSfx() {
+    fleshSfx.pause();
+    boneSfx.pause();
+  }
 
   // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
   let audioCtx = null;
@@ -407,6 +441,7 @@
     handsOnMask.classList.add('show');
 
     shakeWrapper.classList.add('trembling');
+    startTearingSfx();
   });
 
   document.addEventListener('mouseup', () => releaseGrip());
@@ -414,6 +449,7 @@
   function releaseGrip() {
     if (!dragging) return;
     dragging = false;
+    stopTearingSfx();
     if (!removed) {
       handsOnMask.classList.remove('show');
       handCursor.classList.add('show');
@@ -454,6 +490,7 @@
   function detachMask() {
     removed = true;
     dragging = false; // solta automaticamente no momento da queda
+    stopTearingSfx();
     shakeWrapper.classList.remove('trembling');
     document.body.classList.remove('locked-cursor');
     handCursor.classList.remove('show');
