@@ -332,18 +332,20 @@
   // limites de movimento das MAOS "soltas" (o cursor customizado, antes de agarrar)
   const HAND_SIDE_LIMIT = 42;    // px pros lados -- um pouco mais que antes
   const HAND_UP_LIMIT = 550;     // px pra cima -- teto maximo que as maos podem subir
-  const HAND_DOWN_LIMIT = 420;   // px pra baixo
+  const HAND_DOWN_LIMIT = 420;   // px pra baixo -- tambem a posicao inicial
 
-  // zona clicavel: uma FAIXA de altura (nao um ponto unico), medida comparando
-  // suas 3 imagens de referencia com a posicao de repouso
-  const GRAB_ZONE_MIN_UP = 220;  // px pra cima -- mais baixo da faixa
-  const GRAB_ZONE_MAX_UP = 470;  // px pra cima -- mais alto da faixa
+  // posicao inicial das maos (comecam baixas, precisam subir pra area clicavel)
+  const HAND_START_Y = 420;
+
+  // zona clicavel: medida em tempo real com o contador de debug
+  const GRAB_ZONE_Y_MIN = -76;   // limite de cima (y negativo = mais pra cima)
+  const GRAB_ZONE_Y_MAX = 78;    // limite de baixo
 
   let interactionActive = false;
   let dragging = false;
   let removed = false;
 
-  let handOffset = { x: 0, y: 0 };      // posicao atual das maos "soltas"
+  let handOffset = { x: 0, y: HAND_START_Y }; // maos comecam bem baixas
   let gripStartHand = { x: 0, y: 0 };   // posicao das maos no momento em que comecou a segurar
   let targetOffset = { x: 0, y: 0 };    // pra onde as maos+mascara "querem" ir
   let gripOffset = { x: 0, y: 0 };      // posicao suavizada atual das maos+mascara
@@ -355,13 +357,13 @@
   }
 
   function canGrabNow() {
-    const upDistance = -handOffset.y; // positivo quando esta pra cima do repouso
-    return upDistance >= GRAB_ZONE_MIN_UP && upDistance <= GRAB_ZONE_MAX_UP;
+    return handOffset.y >= GRAB_ZONE_Y_MIN && handOffset.y <= GRAB_ZONE_Y_MAX;
   }
 
   function beginMaskPull() {
     interactionActive = true;
     handCursor.classList.add('show');
+    handCursor.style.transform = `translate(${handOffset.x}px, ${handOffset.y}px)`;
     document.body.classList.add('locked-cursor'); // esconde o cursor normal via CSS
 
     // tenta Pointer Lock de verdade; se o navegador bloquear (ex: Brave),
@@ -386,7 +388,7 @@
     if (debugReadout) {
       debugReadout.textContent =
         'handOffset.y = ' + Math.round(handOffset.y) +
-        ' | zona atual: ' + GRAB_ZONE_MIN_UP + ' a ' + GRAB_ZONE_MAX_UP +
+        ' | zona atual: ' + GRAB_ZONE_Y_MIN + ' a ' + GRAB_ZONE_Y_MAX +
         ' | pode clicar: ' + canGrabNow();
     }
 
