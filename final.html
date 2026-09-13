@@ -491,6 +491,7 @@
     removed = true;
     dragging = false; // solta automaticamente no momento da queda
     stopTearingSfx();
+    bgMusic.pause(); // silencio total no momento da queda
     shakeWrapper.classList.remove('trembling');
     document.body.classList.remove('locked-cursor');
     handCursor.classList.remove('show');
