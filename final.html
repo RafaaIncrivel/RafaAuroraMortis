@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Final</title>
+<link rel="stylesheet" href="assets/css/cursor.css">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Comic Sans MS', 'ComicFallback', cursive, sans-serif;
+  }
+
+  /* ---------- cena em tela cheia, sem tarja preta ---------- */
+  #sceneWrap {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  /* mesmo truque de "cover" usado nas outras cenas: mantem a proporcao
+     16:9 das camadas (2560x1440), sempre cobrindo a tela inteira */
+  #sceneInner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100vw, 177.78vh);  /* 16/9 */
+    height: max(100vh, 56.25vw); /* 9/16 */
+    transform: translate(-50%, -50%);
+  }
+
+  /* ---------- as 3 camadas do fantasma, todas no mesmo canvas 2560x1440,
+     entao todas usam exatamente o mesmo inset:0 / 100% / 100% ---------- */
+  .ghost-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  #ghostBody  { z-index: 1; }  /* corpo/rosto real, sempre atras */
+  #ghostMask  { z-index: 2; }  /* mascara removivel */
+  #ghostFringe{ z-index: 3; }  /* franja, sempre na frente */
+
+  #ghostMask.grabbable {
+    pointer-events: auto;
+    cursor: url('assets/images/cursortrueclicando.png') 3 2, grab;
+  }
+
+  #ghostMask.grabbing {
+    cursor: url('assets/images/cursortrueclicando.png') 3 2, grabbing;
+  }
+
+  /* ---------- caixa de dialogo (mesmo estilo usado na fonte) ---------- */
+  #dialogueBox {
+    position: fixed;
+    left: 50%;
+    bottom: 4%;
+    width: min(86vw, 900px);
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(15, 14, 12, 0.86);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 26px 30px 22px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.55);
+    color: #f0ede4;
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    z-index: 20;
+  }
+
+  #dialogueBox.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  #speakerName {
+    position: absolute;
+    top: -18px;
+    left: 24px;
+    padding: 5px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    background: #5a8f3c;
+    color: #f4fff0;
+  }
+
+  #dialogueText {
+    font-size: clamp(14px, 2vw, 18px);
+    line-height: 1.55;
+    min-height: 3.2em;
+  }
+
+  #advanceHint {
+    position: absolute;
+    right: 18px;
+    bottom: 10px;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.55;
+  }
+
+  /* ---------- dica de interacao (arrancar a mascara) ---------- */
+  #pullHint {
+    position: fixed;
+    left: 50%;
+    bottom: 6%;
+    transform: translateX(-50%) translateY(10px);
+    color: #d8d5cc;
+    font-size: 14px;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+
+  #pullHint.show {
+    opacity: 0.8;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* leve indicador visual de progresso enquanto puxa (opcional, sutil) */
+  #pullProgress {
+    position: fixed;
+    left: 50%;
+    bottom: 3%;
+    transform: translateX(-50%);
+    width: min(50vw, 320px);
+    height: 5px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.12);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+
+  #pullProgress.show {
+    opacity: 1;
+  }
+
+  #pullProgressFill {
+    height: 100%;
+    width: 0%;
+    background: rgba(232,119,46,0.85);
+  }
+
+  #blackout {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  #blackout.on {
+    opacity: 1;
+  }
+
+  #blackout.fade {
+    transition: opacity 0.6s ease-in;
+  }
+</style>
+</head>
+<body>
+
+<div id="sceneWrap">
+  <div id="sceneInner">
+    <!-- troque pelos caminhos reais (.png com transparencia) quando subir pro GitHub -->
+    <img class="ghost-layer" id="ghostBody"   src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
+    <img class="ghost-layer" id="ghostMask"   src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
+    <img class="ghost-layer" id="ghostFringe" src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
+  </div>
+</div>
+
+<div id="dialogueBox">
+  <div id="speakerName">Fantasma</div>
+  <div id="dialogueText"></div>
+  <div id="advanceHint">(clique para continuar)</div>
+</div>
+
+<div id="pullHint">(clique e arraste a máscara pra baixo, e segure)</div>
+<div id="pullProgress"><div id="pullProgressFill"></div></div>
+
+<div id="blackout"></div>
+
+<script>
+  const dialogueBox = document.getElementById('dialogueBox');
+  const dialogueText = document.getElementById('dialogueText');
+  const advanceHint = document.getElementById('advanceHint');
+  const pullHint = document.getElementById('pullHint');
+  const pullProgress = document.getElementById('pullProgress');
+  const pullProgressFill = document.getElementById('pullProgressFill');
+  const ghostMask = document.getElementById('ghostMask');
+  const blackout = document.getElementById('blackout');
+
+  // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+  function playBlip() {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    const baseFreq = 392 + (Math.random() * 50 - 25);
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(baseFreq, now);
+
+    const vibrato = ctx.createOscillator();
+    vibrato.frequency.value = 26;
+    const vibratoGain = ctx.createGain();
+    vibratoGain.gain.value = 6;
+    vibrato.connect(vibratoGain);
+    vibratoGain.connect(osc.frequency);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2200;
+    filter.Q.value = 0.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.32, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    vibrato.start(now);
+    osc.stop(now + 0.12);
+    vibrato.stop(now + 0.12);
+  }
+  document.addEventListener('click', () => {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+  }, { once: true });
+
+  // ---------- PLACEHOLDER: falas de exemplo antes da mecanica comecar ----------
+  const introLines = [
+    '(texto de exemplo) Então... você veio até aqui, depois de tudo.',
+    '(texto de exemplo) Sabe, eu não escolhi usar essa máscara. Mas talvez seja tarde pra isso importar agora.',
+    '(texto de exemplo) Se você tem tanta certeza... vai. Tire então. Vê o que sobrou de mim.',
+  ];
+
+  const TYPE_SPEED_MS = 42;
+  let typeInterval = null;
+  let typing = false;
+  let introIndex = 0;
+
+  function typeText(text, onDone) {
+    clearInterval(typeInterval);
+    dialogueText.textContent = '';
+    advanceHint.style.opacity = '0';
+    typing = true;
+
+    let i = 0;
+    typeInterval = setInterval(() => {
+      const ch = text[i];
+      dialogueText.textContent += ch;
+      if (ch !== ' ') playBlip();
+      i++;
+      if (i >= text.length) finishTyping(undefined, onDone);
+    }, TYPE_SPEED_MS);
+  }
+
+  function finishTyping(skippedText, onDone) {
+    clearInterval(typeInterval);
+    if (skippedText !== undefined) dialogueText.textContent = skippedText;
+    typing = false;
+    advanceHint.style.opacity = '0.55';
+    if (onDone) onDone();
+  }
+
+  function showIntroLine(i) {
+    typeText(introLines[i], () => {});
+  }
+
+  function advanceIntro() {
+    if (typing) {
+      finishTyping(introLines[introIndex]);
+      return;
+    }
+    introIndex++;
+    if (introIndex < introLines.length) {
+      showIntroLine(introIndex);
+    } else {
+      dialogueBox.classList.remove('show');
+      dialogueBox.removeEventListener('click', advanceIntro);
+      beginMaskPull();
+    }
+  }
+
+  dialogueBox.addEventListener('click', advanceIntro);
+
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      dialogueBox.classList.add('show');
+      showIntroLine(0);
+    }, 800);
+  });
+
+  // ---------- mecanica de arrancar a mascara ----------
+  const RESISTANCE_UP = 0.06;    // quase nao deixa subir, bem "pesado"
+  const RESISTANCE_DOWN = 0.5;   // desce com resistencia media
+  const RESISTANCE_SIDE = 0.35;  // pros lados, resistencia leve
+  const SPRING = 0.15;           // velocidade com que ela tenta voltar ao lugar
+  const PULL_THRESHOLD_PX = 45;  // quanto precisa estar deslocada pra baixo pra "contar"
+  const PULL_HOLD_SECONDS = 2;   // tempo continuo de puxao pra soltar
+
+  let interactionActive = false;
+  let dragging = false;
+  let removed = false;
+  let startMouse = { x: 0, y: 0 };
+  let targetOffset = { x: 0, y: 0 };
+  let maskOffset = { x: 0, y: 0 };
+  let pullTimer = 0;
+  let lastFrame = performance.now();
+
+  function beginMaskPull() {
+    interactionActive = true;
+    ghostMask.classList.add('grabbable');
+    pullHint.classList.add('show');
+    pullProgress.classList.add('show');
+  }
+
+  ghostMask.addEventListener('mousedown', (e) => {
+    if (!interactionActive || removed) return;
+    dragging = true;
+    ghostMask.classList.add('grabbing');
+    startMouse = { x: e.clientX, y: e.clientY };
+    pullHint.classList.remove('show');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rawDx = e.clientX - startMouse.x;
+    const rawDy = e.clientY - startMouse.y;
+
+    const factorY = rawDy < 0 ? RESISTANCE_UP : RESISTANCE_DOWN;
+    let ty = rawDy * factorY;
+    if (ty < -12) ty = -12; // trava: quase nao sobe do lugar original
+
+    targetOffset = { x: rawDx * RESISTANCE_SIDE, y: ty };
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    ghostMask.classList.remove('grabbing');
+    if (!removed && interactionActive) {
+      pullHint.classList.add('show');
+    }
+  });
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+
+    if (interactionActive && !removed) {
+      const target = dragging ? targetOffset : { x: 0, y: 0 };
+      maskOffset.x += (target.x - maskOffset.x) * SPRING;
+      maskOffset.y += (target.y - maskOffset.y) * SPRING;
+      ghostMask.style.transform = `translate(${maskOffset.x}px, ${maskOffset.y}px)`;
+
+      if (dragging && maskOffset.y > PULL_THRESHOLD_PX) {
+        pullTimer += dt;
+      } else {
+        pullTimer = Math.max(0, pullTimer - dt * 1.4);
+      }
+
+      pullProgressFill.style.width = Math.min(100, (pullTimer / PULL_HOLD_SECONDS) * 100) + '%';
+
+      if (pullTimer >= PULL_HOLD_SECONDS) {
+        detachMask();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function detachMask() {
+    removed = true;
+    dragging = false;
+    ghostMask.classList.remove('grabbing', 'grabbable');
+    pullHint.classList.remove('show');
+    pullProgress.classList.remove('show');
+
+    // animacao de queda: a mascara se solta e cai, revelando o rosto de baixo
+    ghostMask.style.transition = 'transform 0.7s cubic-bezier(.4,0,1,1), opacity 0.5s ease 0.2s';
+    ghostMask.style.transform = `translate(${maskOffset.x * 1.6}px, 140vh) rotate(${maskOffset.x > 0 ? 35 : -35}deg)`;
+    ghostMask.style.opacity = '0.85';
+
+    // quando a mascara termina de cair e o rosto fica totalmente exposto,
+    // corta pra preto na hora (sem fade)
+    setTimeout(() => {
+      blackout.classList.remove('fade');
+      blackout.classList.add('on');
+      // Espaco para: proxima cena / creditos / navegacao futura
+    }, 700);
+  }
+</script>
+
+</body>
+</html>
