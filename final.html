@@ -47,23 +47,31 @@
     pointer-events: none;
   }
 
-  #ghostBody       { z-index: 1; }  /* corpo/rosto real, sempre atras */
-  #ghostMaskStatic { z-index: 2; }  /* copia fixa da mascara: tapa o rosto sempre,
-                                        nao importa o quanto a mascara visivel se mova */
-  #ghostMask       { z-index: 3; }  /* mascara que o jogador arrasta (visual) */
-  #ghostFringe     { z-index: 4; }  /* franja, sempre na frente */
+  #ghostBody  { z-index: 1; }  /* corpo/rosto real, sempre atras -- pode vazar um pouco */
+  #ghostMask  { z-index: 2; }  /* mascara que o jogador arranca */
+  #ghostFringe{ z-index: 3; }  /* franja, sempre na frente */
+  #handCursor { z-index: 4; }  /* maos: substituem o cursor do sistema */
 
-  #ghostMaskStatic.revealed {
+  #handCursor {
     display: none;
   }
 
-  #ghostMask.grabbable {
-    pointer-events: auto;
-    cursor: url('assets/images/cursortrueclicando.png') 3 2, grab;
+  #handCursor.show {
+    display: block;
   }
 
-  #ghostMask.grabbing {
-    cursor: url('assets/images/cursortrueclicando.png') 3 2, grabbing;
+  /* tremidinha leve enquanto o jogador esta ativamente puxando a mascara */
+  @keyframes ghostTremble {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    20%  { transform: translate(-1px, 0.6px) rotate(-0.3deg); }
+    40%  { transform: translate(1px, -0.6px) rotate(0.3deg); }
+    60%  { transform: translate(-0.6px, 0.8px) rotate(-0.2deg); }
+    80%  { transform: translate(0.8px, -0.4px) rotate(0.2deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+
+  #sceneInner.trembling {
+    animation: ghostTremble 0.22s ease-in-out infinite;
   }
 
   /* ---------- caixa de dialogo (mesmo estilo usado na fonte) ---------- */
@@ -118,6 +126,28 @@
     opacity: 0.55;
   }
 
+  body.locked-cursor,
+  body.locked-cursor #sceneWrap {
+    cursor: none;
+  }
+
+  #relockPrompt {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+    color: #eee;
+    font-size: 15px;
+    z-index: 40;
+    cursor: pointer;
+  }
+
+  #relockPrompt.show {
+    display: flex;
+  }
+
   #blackout {
     position: fixed;
     inset: 0;
@@ -141,10 +171,10 @@
 <div id="sceneWrap">
   <div id="sceneInner">
     <!-- troque pelos caminhos reais (.png com transparencia) quando subir pro GitHub -->
-    <img class="ghost-layer" id="ghostBody"       src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
-    <img class="ghost-layer" id="ghostMaskStatic" src="assets/images/fantasmafinal2.png" alt="" draggable="false">
-    <img class="ghost-layer" id="ghostMask"       src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
-    <img class="ghost-layer" id="ghostFringe"     src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
+    <img class="ghost-layer" id="ghostBody"   src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
+    <img class="ghost-layer" id="ghostMask"   src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
+    <img class="ghost-layer" id="ghostFringe" src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
+    <img class="ghost-layer" id="handCursor"  src="assets/images/maoquemata.png" alt="" draggable="false">
   </div>
 </div>
 
@@ -154,6 +184,8 @@
   <div id="advanceHint">(clique para continuar)</div>
 </div>
 
+<div id="relockPrompt">(clique para continuar)</div>
+
 <div id="blackout"></div>
 
 <script>
@@ -161,7 +193,10 @@
   const dialogueText = document.getElementById('dialogueText');
   const advanceHint = document.getElementById('advanceHint');
   const ghostMask = document.getElementById('ghostMask');
-  const ghostMaskStatic = document.getElementById('ghostMaskStatic');
+  const sceneInner = document.getElementById('sceneInner');
+  const sceneWrap = document.getElementById('sceneWrap');
+  const handCursor = document.getElementById('handCursor');
+  const relockPrompt = document.getElementById('relockPrompt');
   const blackout = document.getElementById('blackout');
 
   // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
@@ -262,7 +297,7 @@
     } else {
       dialogueBox.classList.remove('show');
       dialogueBox.removeEventListener('click', advanceIntro);
-      beginMaskPull();
+      beginMaskPull(); // esse clique conta como o "gesto do usuario" que libera o pointer lock
     }
   }
 
@@ -276,27 +311,34 @@
   });
 
   // ---------- mecanica de arrancar a mascara ----------
-  // resistencia bem mais forte: o quanto do movimento do mouse "passa" pra mascara
+  // resistencia da MASCARA (o quanto do "puxao" das maos passa pra ela)
   const RESISTANCE_UP = 0.035;   // pra cima: quase nao sai do lugar
   const RESISTANCE_DOWN = 0.16;  // pra baixo: ainda bem resistido
   const RESISTANCE_SIDE = 0.11;  // pros lados: resistido tambem
 
-  // limite RIGIDO de deslocamento (px) em cada direcao -- a mascara nunca passa
-  // disso, nao importa quanto o mouse se mova alem
+  // limite RIGIDO de deslocamento (px) da MASCARA em cada direcao
   const MAX_UP = 10;
   const MAX_DOWN = 55;
   const MAX_SIDE = 45;
 
-  const SPRING = 0.13;           // velocidade com que ela tenta voltar ao lugar
+  const SPRING = 0.13;           // velocidade com que a mascara tenta voltar ao lugar
   const PULL_THRESHOLD_PX = 38;  // quanto precisa estar deslocada pra baixo pra "contar"
   const PULL_HOLD_SECONDS = 2;   // tempo continuo de puxao pra soltar
 
+  // limites de movimento das MAOS (o "cursor" customizado)
+  const HAND_SIDE_LIMIT = 30;    // px, bem pouco pros lados
+  const HAND_UP_LIMIT = 380;     // px, livre pra subir
+  const HAND_DOWN_LIMIT = 420;   // px, livre pra baixar
+
   let interactionActive = false;
+  let locked = false;
   let dragging = false;
   let removed = false;
-  let startMouse = { x: 0, y: 0 };
-  let targetOffset = { x: 0, y: 0 };
-  let maskOffset = { x: 0, y: 0 };
+
+  let handOffset = { x: 0, y: 0 };      // posicao atual das maos (relativa ao repouso)
+  let gripStartHand = { x: 0, y: 0 };   // posicao das maos no momento em que comecou a segurar
+  let targetOffset = { x: 0, y: 0 };    // pra onde a mascara "quer" ir
+  let maskOffset = { x: 0, y: 0 };      // posicao suavizada atual da mascara
   let pullTimer = 0;
   let lastFrame = performance.now();
 
@@ -306,32 +348,57 @@
 
   function beginMaskPull() {
     interactionActive = true;
-    ghostMask.classList.add('grabbable');
+    handCursor.classList.add('show');
+    document.body.classList.add('locked-cursor');
+    sceneWrap.requestPointerLock();
   }
 
-  ghostMask.addEventListener('mousedown', (e) => {
-    if (!interactionActive || removed) return;
+  document.addEventListener('pointerlockchange', () => {
+    locked = document.pointerLockElement === sceneWrap;
+    if (interactionActive && !removed) {
+      relockPrompt.classList.toggle('show', !locked);
+    }
+  });
+
+  relockPrompt.addEventListener('click', () => {
+    sceneWrap.requestPointerLock();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!interactionActive || !locked || removed) return;
+
+    handOffset.x = clamp(handOffset.x + e.movementX, -HAND_SIDE_LIMIT, HAND_SIDE_LIMIT);
+    handOffset.y = clamp(handOffset.y + e.movementY, -HAND_UP_LIMIT, HAND_DOWN_LIMIT);
+
+    handCursor.style.transform = `translate(${handOffset.x}px, ${handOffset.y}px)`;
+
+    if (dragging) {
+      const rawDx = handOffset.x - gripStartHand.x;
+      const rawDy = handOffset.y - gripStartHand.y;
+
+      const factorY = rawDy < 0 ? RESISTANCE_UP : RESISTANCE_DOWN;
+      const tx = clamp(rawDx * RESISTANCE_SIDE, -MAX_SIDE, MAX_SIDE);
+      const ty = clamp(rawDy * factorY, -MAX_UP, MAX_DOWN);
+
+      targetOffset = { x: tx, y: ty };
+    }
+  });
+
+  document.addEventListener('mousedown', () => {
+    if (!interactionActive || !locked || removed) return;
     dragging = true;
-    ghostMask.classList.add('grabbing');
-    startMouse = { x: e.clientX, y: e.clientY };
+    gripStartHand = { x: handOffset.x, y: handOffset.y };
+    handCursor.src = 'assets/images/maoquematana_mascara.png';
+    sceneInner.classList.add('trembling');
   });
 
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const rawDx = e.clientX - startMouse.x;
-    const rawDy = e.clientY - startMouse.y;
-
-    const factorY = rawDy < 0 ? RESISTANCE_UP : RESISTANCE_DOWN;
-    const tx = clamp(rawDx * RESISTANCE_SIDE, -MAX_SIDE, MAX_SIDE);
-    const ty = clamp(rawDy * factorY, -MAX_UP, MAX_DOWN);
-
-    targetOffset = { x: tx, y: ty };
-  });
-
-  window.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', () => {
     if (!dragging) return;
     dragging = false;
-    ghostMask.classList.remove('grabbing');
+    if (!removed) {
+      handCursor.src = 'assets/images/maoquemata.png';
+      sceneInner.classList.remove('trembling');
+    }
   });
 
   function frame(now) {
@@ -343,7 +410,6 @@
       maskOffset.x += (target.x - maskOffset.x) * SPRING;
       maskOffset.y += (target.y - maskOffset.y) * SPRING;
 
-      // clamp final de seguranca, mesmo durante a suavizacao
       maskOffset.x = clamp(maskOffset.x, -MAX_SIDE, MAX_SIDE);
       maskOffset.y = clamp(maskOffset.y, -MAX_UP, MAX_DOWN);
 
@@ -367,17 +433,20 @@
   function detachMask() {
     removed = true;
     dragging = false;
-    ghostMask.classList.remove('grabbing', 'grabbable');
+    sceneInner.classList.remove('trembling');
+    relockPrompt.classList.remove('show');
+
+    if (document.exitPointerLock) document.exitPointerLock();
+    document.body.classList.remove('locked-cursor');
+    handCursor.classList.remove('show');
 
     // animacao de queda: a mascara se solta e cai
     ghostMask.style.transition = 'transform 0.7s cubic-bezier(.4,0,1,1), opacity 0.5s ease 0.2s';
     ghostMask.style.transform = `translate(${maskOffset.x * 1.6}px, 140vh) rotate(${maskOffset.x > 0 ? 35 : -35}deg)`;
     ghostMask.style.opacity = '0.85';
 
-    // libera a copia fixa exatamente no momento em que o rosto fica exposto,
-    // e corta pra preto na hora (sem fade)
+    // corta pra preto na hora (sem fade), assim que o rosto fica exposto
     setTimeout(() => {
-      ghostMaskStatic.classList.add('revealed');
       blackout.classList.remove('fade');
       blackout.classList.add('on');
       // Espaco para: proxima cena / creditos / navegacao futura
