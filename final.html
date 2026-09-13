@@ -47,16 +47,23 @@
     pointer-events: none;
   }
 
-  #ghostBody  { z-index: 1; }  /* corpo/rosto real, sempre atras -- pode vazar um pouco */
-  #ghostMask  { z-index: 2; }  /* mascara que o jogador arranca */
-  #ghostFringe{ z-index: 3; }  /* franja, sempre na frente */
-  #handCursor { z-index: 4; }  /* maos: substituem o cursor do sistema */
+  #ghostBody       { z-index: 1; }  /* corpo/rosto real, sempre atras -- pode vazar um pouco */
+  #ghostMask       { z-index: 2; }  /* mascara em repouso, na cara do fantasma */
+  #handsOnMask     { z-index: 3; }  /* maos ja agarrando a mascara -- fica ABAIXO da franja */
+  #ghostFringe     { z-index: 4; }  /* franja, sempre na frente */
+  #handCursor      { z-index: 5; }  /* maos "soltas" flutuando, substituem o cursor do sistema */
 
-  #handCursor {
+  #ghostMask.hidden-during-grip {
     display: none;
   }
 
-  #handCursor.show {
+  #handCursor,
+  #handsOnMask {
+    display: none;
+  }
+
+  #handCursor.show,
+  #handsOnMask.show {
     display: block;
   }
 
@@ -164,10 +171,11 @@
   <div id="sceneInner">
     <div id="shakeWrapper">
       <!-- troque pelos caminhos reais (.png com transparencia) quando subir pro GitHub -->
-      <img class="ghost-layer" id="ghostBody"   src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
-      <img class="ghost-layer" id="ghostMask"   src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
-      <img class="ghost-layer" id="ghostFringe" src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
-      <img class="ghost-layer" id="handCursor"  src="assets/images/maoquemata.png" alt="" draggable="false">
+      <img class="ghost-layer" id="ghostBody"    src="assets/images/fantasmafinal1.png" alt="corpo do fantasma" draggable="false">
+      <img class="ghost-layer" id="ghostMask"    src="assets/images/fantasmafinal2.png" alt="mascara do fantasma" draggable="false">
+      <img class="ghost-layer" id="handsOnMask"  src="assets/images/maoquematana_mascara.png" alt="" draggable="false">
+      <img class="ghost-layer" id="ghostFringe"  src="assets/images/fantasmafinal3.png" alt="franja do fantasma" draggable="false">
+      <img class="ghost-layer" id="handCursor"   src="assets/images/maoquemata.png" alt="" draggable="false">
     </div>
   </div>
 </div>
@@ -185,8 +193,10 @@
   const dialogueText = document.getElementById('dialogueText');
   const advanceHint = document.getElementById('advanceHint');
   const ghostMask = document.getElementById('ghostMask');
+  const handsOnMask = document.getElementById('handsOnMask');
   const shakeWrapper = document.getElementById('shakeWrapper');
   const handCursor = document.getElementById('handCursor');
+  const sceneWrap = document.getElementById('sceneWrap');
   const blackout = document.getElementById('blackout');
 
   // ---------- "voz" do fantasma sintetizada na hora (mesmo efeito da fonte.html) ----------
@@ -301,33 +311,37 @@
   });
 
   // ---------- mecanica de arrancar a mascara ----------
-  // resistencia da MASCARA (o quanto do "puxao" das maos passa pra ela)
+  // resistencia (o quanto do "puxao" das maos passa pro visual das maos+mascara)
   const RESISTANCE_UP = 0.035;   // pra cima: quase nao sai do lugar
   const RESISTANCE_DOWN = 0.16;  // pra baixo: ainda bem resistido
-  const RESISTANCE_SIDE = 0.11;  // pros lados: resistido tambem
+  const RESISTANCE_SIDE = 0.13;  // pros lados: resistido tambem
 
-  // limite RIGIDO de deslocamento (px) da MASCARA em cada direcao
+  // limite RIGIDO de deslocamento (px) das maos+mascara em cada direcao
   const MAX_UP = 10;
   const MAX_DOWN = 55;
-  const MAX_SIDE = 45;
+  const MAX_SIDE = 55; // um pouco mais generoso que antes
 
-  const SPRING = 0.13;           // velocidade com que a mascara tenta voltar ao lugar
+  const SPRING = 0.13;           // velocidade com que tenta voltar ao lugar
   const PULL_THRESHOLD_PX = 38;  // quanto precisa estar deslocada pra baixo pra "contar"
   const PULL_HOLD_SECONDS = 2;   // tempo continuo de puxao pra soltar
 
-  // limites de movimento das MAOS (o "cursor" customizado)
-  const HAND_SIDE_LIMIT = 30;    // px, bem pouco pros lados
-  const HAND_UP_LIMIT = 380;     // px, livre pra subir
-  const HAND_DOWN_LIMIT = 420;   // px, livre pra baixar
+  // limites de movimento das MAOS "soltas" (o cursor customizado, antes de agarrar)
+  const HAND_SIDE_LIMIT = 42;    // px pros lados -- um pouco mais que antes
+  const HAND_UP_LIMIT = 380;     // px pra cima -- PLACEHOLDER, ajusto com o print que voce vai mandar
+  const HAND_DOWN_LIMIT = 420;   // px pra baixo
+
+  // so pode agarrar a mascara quando as maos estiverem quase no topo do alcance
+  // (dentro dessa tolerancia). PLACEHOLDER ate o print chegar.
+  const GRAB_HEIGHT_TOLERANCE = 25;
 
   let interactionActive = false;
   let dragging = false;
   let removed = false;
 
-  let handOffset = { x: 0, y: 0 };      // posicao atual das maos (relativa ao repouso)
+  let handOffset = { x: 0, y: 0 };      // posicao atual das maos "soltas"
   let gripStartHand = { x: 0, y: 0 };   // posicao das maos no momento em que comecou a segurar
-  let targetOffset = { x: 0, y: 0 };    // pra onde a mascara "quer" ir
-  let maskOffset = { x: 0, y: 0 };      // posicao suavizada atual da mascara
+  let targetOffset = { x: 0, y: 0 };    // pra onde as maos+mascara "querem" ir
+  let gripOffset = { x: 0, y: 0 };      // posicao suavizada atual das maos+mascara
   let pullTimer = 0;
   let lastFrame = performance.now();
 
@@ -335,23 +349,35 @@
     return Math.min(max, Math.max(min, v));
   }
 
+  function canGrabNow() {
+    return handOffset.y <= (-HAND_UP_LIMIT + GRAB_HEIGHT_TOLERANCE);
+  }
+
   function beginMaskPull() {
     interactionActive = true;
     handCursor.classList.add('show');
     document.body.classList.add('locked-cursor'); // esconde o cursor normal via CSS
+
+    // tenta Pointer Lock de verdade; se o navegador bloquear (ex: Brave),
+    // o mousemove abaixo continua funcionando via movementX/Y mesmo sem lock
+    const lockPromise = sceneWrap.requestPointerLock();
+    if (lockPromise && lockPromise.catch) lockPromise.catch(() => {});
   }
 
-  // usamos e.movementX/e.movementY do mousemove comum -- funciona sem precisar
-  // de Pointer Lock nem de nenhuma permissao especial do navegador
+  document.addEventListener('pointerlockerror', () => {
+    // sem problema -- o mecanismo de movementX/Y funciona de qualquer jeito
+  });
+
+  // usamos e.movementX/e.movementY -- funciona com ou sem Pointer Lock ativo
   document.addEventListener('mousemove', (e) => {
     if (!interactionActive || removed) return;
 
     handOffset.x = clamp(handOffset.x + e.movementX, -HAND_SIDE_LIMIT, HAND_SIDE_LIMIT);
     handOffset.y = clamp(handOffset.y + e.movementY, -HAND_UP_LIMIT, HAND_DOWN_LIMIT);
 
-    handCursor.style.transform = `translate(${handOffset.x}px, ${handOffset.y}px)`;
-
-    if (dragging) {
+    if (!dragging) {
+      handCursor.style.transform = `translate(${handOffset.x}px, ${handOffset.y}px)`;
+    } else {
       const rawDx = handOffset.x - gripStartHand.x;
       const rawDy = handOffset.y - gripStartHand.y;
 
@@ -364,21 +390,33 @@
   });
 
   document.addEventListener('mousedown', () => {
-    if (!interactionActive || removed) return;
+    if (!interactionActive || removed || dragging) return;
+    if (!canGrabNow()) return; // so agarra se as maos estiverem no topo do alcance
+
     dragging = true;
     gripStartHand = { x: handOffset.x, y: handOffset.y };
-    handCursor.src = 'assets/images/maoquematana_mascara.png';
+
+    // troca: some a mascara "de repouso" e as maos soltas, aparecem as maos
+    // agarrando a mascara (essa e a que recebe toda a fisica/resistencia)
+    ghostMask.classList.add('hidden-during-grip');
+    handCursor.classList.remove('show');
+    handsOnMask.classList.add('show');
+
     shakeWrapper.classList.add('trembling');
   });
 
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', () => releaseGrip());
+
+  function releaseGrip() {
     if (!dragging) return;
     dragging = false;
     if (!removed) {
-      handCursor.src = 'assets/images/maoquemata.png';
+      handsOnMask.classList.remove('show');
+      handCursor.classList.add('show');
+      ghostMask.classList.remove('hidden-during-grip');
       shakeWrapper.classList.remove('trembling');
     }
-  });
+  }
 
   function frame(now) {
     const dt = Math.min(0.05, (now - lastFrame) / 1000);
@@ -386,15 +424,15 @@
 
     if (interactionActive && !removed) {
       const target = dragging ? targetOffset : { x: 0, y: 0 };
-      maskOffset.x += (target.x - maskOffset.x) * SPRING;
-      maskOffset.y += (target.y - maskOffset.y) * SPRING;
+      gripOffset.x += (target.x - gripOffset.x) * SPRING;
+      gripOffset.y += (target.y - gripOffset.y) * SPRING;
 
-      maskOffset.x = clamp(maskOffset.x, -MAX_SIDE, MAX_SIDE);
-      maskOffset.y = clamp(maskOffset.y, -MAX_UP, MAX_DOWN);
+      gripOffset.x = clamp(gripOffset.x, -MAX_SIDE, MAX_SIDE);
+      gripOffset.y = clamp(gripOffset.y, -MAX_UP, MAX_DOWN);
 
-      ghostMask.style.transform = `translate(${maskOffset.x}px, ${maskOffset.y}px)`;
+      handsOnMask.style.transform = `translate(${gripOffset.x}px, ${gripOffset.y}px)`;
 
-      if (dragging && maskOffset.y > PULL_THRESHOLD_PX) {
+      if (dragging && gripOffset.y > PULL_THRESHOLD_PX) {
         pullTimer += dt;
       } else {
         pullTimer = Math.max(0, pullTimer - dt * 1.4);
@@ -411,15 +449,16 @@
 
   function detachMask() {
     removed = true;
-    dragging = false;
+    dragging = false; // solta automaticamente no momento da queda
     shakeWrapper.classList.remove('trembling');
     document.body.classList.remove('locked-cursor');
     handCursor.classList.remove('show');
+    if (document.exitPointerLock) document.exitPointerLock();
 
-    // animacao de queda: a mascara se solta e cai
-    ghostMask.style.transition = 'transform 0.7s cubic-bezier(.4,0,1,1), opacity 0.5s ease 0.2s';
-    ghostMask.style.transform = `translate(${maskOffset.x * 1.6}px, 140vh) rotate(${maskOffset.x > 0 ? 35 : -35}deg)`;
-    ghostMask.style.opacity = '0.85';
+    // animacao de queda: maos + mascara se soltam e caem juntas
+    handsOnMask.style.transition = 'transform 0.7s cubic-bezier(.4,0,1,1), opacity 0.5s ease 0.2s';
+    handsOnMask.style.transform = `translate(${gripOffset.x * 1.6}px, 140vh) rotate(${gripOffset.x > 0 ? 35 : -35}deg)`;
+    handsOnMask.style.opacity = '0.85';
 
     // corta pra preto na hora (sem fade), assim que o rosto fica exposto
     setTimeout(() => {
