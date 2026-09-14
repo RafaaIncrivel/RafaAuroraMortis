@@ -100,13 +100,12 @@
   /* ---------- moitas laterais (cortina) ---------- */
   .bush {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: -6%;
+    width: 40%;         /* bem mais estreita, so ocupa o canto */
+    height: 112%;
     object-fit: cover;
     opacity: 0;
     transition: opacity 1.2s ease;
-    transform: translateX(0);
     user-select: none;
     -webkit-user-drag: none;
     z-index: 3;
@@ -117,33 +116,39 @@
   }
 
   #bushLeft {
-    transform: translateX(0) scaleX(-1); /* espelhada pro lado esquerdo */
+    left: -8%;               /* uma parte sai da tela, so a pontinha aparece */
+    object-position: right top;
+    transform: translateX(0vw) scaleX(-1); /* espelhada pro lado esquerdo */
   }
 
   #bushRight {
-    transform: translateX(0);
+    right: -8%;
+    object-position: right top;
+    transform: translateX(0vw);
   }
 
-  /* fechar: arrasta as moitas pro centro, encontrando uma a outra */
+  /* fechar: arrasta as moitas pro centro, encontrando uma a outra.
+     translateX em vw (nao %) pra ter controle absoluto, independente
+     do tamanho proprio do elemento */
   #bushLeft.closing {
     transition: transform 2.2s cubic-bezier(.55,0,.35,1);
-    transform: translateX(38%) scaleX(-1);
+    transform: translateX(46vw) scaleX(-1);
   }
 
   #bushRight.closing {
     transition: transform 2.2s cubic-bezier(.55,0,.35,1);
-    transform: translateX(-38%);
+    transform: translateX(-46vw);
   }
 
   /* reabrir: volta pra posicao original */
   #bushLeft.opening {
     transition: transform 2s cubic-bezier(.3,0,.2,1);
-    transform: translateX(0) scaleX(-1);
+    transform: translateX(0vw) scaleX(-1);
   }
 
   #bushRight.opening {
     transition: transform 2s cubic-bezier(.3,0,.2,1);
-    transform: translateX(0);
+    transform: translateX(0vw);
   }
 </style>
 </head>
