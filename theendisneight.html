@@ -13,36 +13,239 @@
     background: #000;
     overflow: hidden;
     font-family: 'Comic Sans MS', 'ComicFallback', cursive, sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #eaeaea;
   }
 
-  h1 {
-    font-size: clamp(20px, 4vw, 38px);
-    letter-spacing: 1px;
+  /* ---------- cena em tela cheia, sem tarja preta (mesmo truque das outras paginas) ---------- */
+  #sceneWrap {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #sceneInner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100vw, 177.78vh);  /* 16/9 */
+    height: max(100vh, 56.25vw); /* 9/16 */
+    transform: translate(-50%, -50%);
+  }
+
+  /* fundo: comeca preto puro, so vira a imagem depois da troca escondida */
+  #bgLayer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     opacity: 0;
-    transition: opacity 1.4s ease;
+    transition: opacity 0.4s ease;
+    user-select: none;
+    -webkit-user-drag: none;
   }
 
-  h1.show {
+  #bgLayer.show {
     opacity: 1;
+  }
+
+  /* ---------- fantoche do fantasma dormindo, sobe de baixo ---------- */
+  #ghostPuppet {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transform: translateY(120vh);
+    user-select: none;
+    -webkit-user-drag: none;
+    z-index: 2;
+  }
+
+  #ghostPuppet.rising {
+    animation: puppetRise 2.6s cubic-bezier(.34,.2,.2,1) forwards;
+  }
+
+  /* subida tremida, nao reta -- como alguem levantando um fantoche de vareta */
+  @keyframes puppetRise {
+    0%   { opacity: 0; transform: translateY(120vh) translateX(0) rotate(0deg); }
+    8%   { opacity: 1; }
+    22%  { transform: translateY(78vh)  translateX(1.2%) rotate(-1.5deg); }
+    38%  { transform: translateY(52vh)  translateX(-1.6%) rotate(1.8deg); }
+    55%  { transform: translateY(30vh)  translateX(1%)   rotate(-1.2deg); }
+    70%  { transform: translateY(14vh)  translateX(-0.8%) rotate(1deg); }
+    84%  { transform: translateY(3vh)   translateX(0.5%)  rotate(-0.6deg); }
+    93%  { transform: translateY(-1.5vh) translateX(-0.3%) rotate(0.4deg); }
+    100% { opacity: 1; transform: translateY(0) translateX(0) rotate(0deg); }
+  }
+
+  /* balancinho ocasional, disparado por JS de tempos em tempos, nao continuo */
+  @keyframes puppetSway {
+    0%   { transform: translateY(0) rotate(0deg); }
+    25%  { transform: translateY(-3px) rotate(-2deg); }
+    50%  { transform: translateY(0) rotate(0.5deg); }
+    75%  { transform: translateY(-1.5px) rotate(-1deg); }
+    100% { transform: translateY(0) rotate(0deg); }
+  }
+
+  #ghostPuppet.swaying {
+    animation: puppetSway 1.8s ease-in-out;
+  }
+
+  #ghostPuppet.hidden-instant {
+    display: none;
+  }
+
+  /* ---------- moitas laterais (cortina) ---------- */
+  .bush {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+    transform: translateX(0);
+    user-select: none;
+    -webkit-user-drag: none;
+    z-index: 3;
+  }
+
+  .bush.show {
+    opacity: 1;
+  }
+
+  #bushLeft {
+    transform: translateX(0) scaleX(-1); /* espelhada pro lado esquerdo */
+  }
+
+  #bushRight {
+    transform: translateX(0);
+  }
+
+  /* fechar: arrasta as moitas pro centro, encontrando uma a outra */
+  #bushLeft.closing {
+    transition: transform 2.2s cubic-bezier(.55,0,.35,1);
+    transform: translateX(38%) scaleX(-1);
+  }
+
+  #bushRight.closing {
+    transition: transform 2.2s cubic-bezier(.55,0,.35,1);
+    transform: translateX(-38%);
+  }
+
+  /* reabrir: volta pra posicao original */
+  #bushLeft.opening {
+    transition: transform 2s cubic-bezier(.3,0,.2,1);
+    transform: translateX(0) scaleX(-1);
+  }
+
+  #bushRight.opening {
+    transition: transform 2s cubic-bezier(.3,0,.2,1);
+    transform: translateX(0);
   }
 </style>
 </head>
 <body>
 
-  <!-- PLACEHOLDER: conteudo real de "theendisneight" entra aqui -->
-  <h1 id="title">the end is nigh</h1>
+<div id="sceneWrap">
+  <div id="sceneInner">
+    <!-- troque pelos caminhos reais quando subir pro GitHub -->
+    <img id="bgLayer" src="assets/images/fantasmadeverdademorta.jpg" alt="" draggable="false">
+    <img id="ghostPuppet" src="assets/images/fantasmamimindofim.png" alt="fantasma dormindo" draggable="false">
+    <img id="bushLeft" class="bush" src="assets/images/moita_nuvem.png" alt="" draggable="false">
+    <img id="bushRight" class="bush" src="assets/images/moita_nuvem.png" alt="" draggable="false">
+  </div>
+</div>
 
-  <script>
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        document.getElementById('title').classList.add('show');
-      }, 300);
+<!-- troque pelo caminho real quando subir pro GitHub -->
+<audio id="bgMusic" src="assets/audio/theendisneight-music.mp3" loop preload="auto"></audio>
+
+<script>
+  const bgLayer = document.getElementById('bgLayer');
+  const ghostPuppet = document.getElementById('ghostPuppet');
+  const bushLeft = document.getElementById('bushLeft');
+  const bushRight = document.getElementById('bushRight');
+  const bgMusic = document.getElementById('bgMusic');
+
+  bgMusic.volume = 0.3;
+
+  // ---------- musica de fundo (com fallback pra politica de autoplay) ----------
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    bgMusic.play().catch(() => {});
+  }
+  bgMusic.play().catch(() => {});
+  document.addEventListener('click', unlockAudio, { once: true });
+
+  // ---------- balancinho ocasional do fantoche, uma vez ja no lugar ----------
+  let swayScheduled = false;
+  function scheduleSway() {
+    if (swayScheduled) return;
+    const nextIn = 3000 + Math.random() * 4000; // entre 3s e 7s
+    setTimeout(() => {
+      ghostPuppet.classList.remove('swaying');
+      void ghostPuppet.offsetWidth; // forca reflow pra poder reiniciar a animacao
+      ghostPuppet.classList.add('swaying');
+      scheduleSway();
+    }, nextIn);
+  }
+
+  window.addEventListener('load', () => {
+    // 1) moitas aparecem com fade in
+    bushLeft.classList.add('show');
+    bushRight.classList.add('show');
+
+    // 2) fantoche sobe tremido, um pouco atrasado
+    setTimeout(() => {
+      ghostPuppet.classList.add('rising');
+    }, 900);
+
+    // 3) depois que termina de subir, comeca o balancinho ocasional
+    ghostPuppet.addEventListener('animationend', function onRise(e) {
+      if (e.animationName !== 'puppetRise') return;
+      ghostPuppet.removeEventListener('animationend', onRise);
+      scheduleSway();
     });
-  </script>
+
+    // 4) depois de 6s, as moitas comecam a fechar (efeito de arrastar)
+    setTimeout(() => {
+      bushLeft.classList.add('closing');
+      bushRight.classList.add('closing');
+    }, 6000);
+
+    // 5) quando as moitas terminam de fechar: fantoche some na hora,
+    //    e o fundo troca por baixo (ainda escondido pelas moitas fechadas)
+    bushRight.addEventListener('transitionend', function onClose(e) {
+      if (e.propertyName !== 'transform' || !bushRight.classList.contains('closing')) return;
+      bushRight.removeEventListener('transitionend', onClose);
+
+      ghostPuppet.classList.add('hidden-instant');
+      bgLayer.classList.add('show');
+
+      // 6) uma pequena pausa no escuro (coberto), depois as moitas reabrem
+      setTimeout(() => {
+        bushLeft.classList.remove('closing');
+        bushRight.classList.remove('closing');
+        bushLeft.classList.add('opening');
+        bushRight.classList.add('opening');
+
+        // 7) musica em fade out enquanto as moitas saem (reabrem)
+        const fadeMusic = setInterval(() => {
+          if (bgMusic.volume > 0.01) {
+            bgMusic.volume = Math.max(0, bgMusic.volume - 0.015);
+          } else {
+            bgMusic.pause();
+            clearInterval(fadeMusic);
+          }
+        }, 30);
+      }, 900);
+    });
+  });
+</script>
 
 </body>
 </html>
