@@ -211,11 +211,13 @@
       scheduleSway();
     });
 
-    // 4) depois de 6s, as moitas comecam a fechar (efeito de arrastar)
+    // 4) depois de um tempo aleatorio (10 a 20s), as moitas comecam a fechar
+    //    (efeito de arrastar) -- timing solto de proposito, pra nao ficar previsivel
+    const closeDelay = 10000 + Math.random() * 10000;
     setTimeout(() => {
       bushLeft.classList.add('closing');
       bushRight.classList.add('closing');
-    }, 6000);
+    }, closeDelay);
 
     // 5) quando as moitas terminam de fechar: fantoche some na hora,
     //    e o fundo troca por baixo (ainda escondido pelas moitas fechadas)
