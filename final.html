@@ -506,7 +506,11 @@
     setTimeout(() => {
       blackout.classList.remove('fade');
       blackout.classList.add('on');
-      // Espaco para: proxima cena / creditos / navegacao futura
+
+      // depois de 5s no preto, avanca pra proxima pagina
+      setTimeout(() => {
+        window.location.href = 'theendisneight.html';
+      }, 5000);
     }, 700);
   }
 </script>
